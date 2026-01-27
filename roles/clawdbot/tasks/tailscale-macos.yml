@@ -1,16 +1,21 @@
 ---
-# macOS-specific Tailscale installation (Homebrew Cask)
+# macOS-specific Tailscale installation (Standalone pkg - recommended by Tailscale)
+# Using the standalone pkg instead of Homebrew cask avoids sudo issues and is
+# the recommended installation method per https://tailscale.com/kb/1065/macos-variants
 
 - name: Check if Tailscale is already installed (macOS)
   ansible.builtin.stat:
     path: /Applications/Tailscale.app
   register: tailscale_app_macos
 
-- name: Install Tailscale via Homebrew Cask (macOS)
-  community.general.homebrew_cask:
-    name: tailscale
-    state: present
-  become: false
+- name: Download and install Tailscale pkg (macOS)
+  become: true
+  ansible.builtin.shell: |
+    curl -fsSL -o /tmp/Tailscale.pkg https://pkgs.tailscale.com/stable/Tailscale-latest-macos.pkg
+    installer -pkg /tmp/Tailscale.pkg -target /
+    rm -f /tmp/Tailscale.pkg
+  args:
+    creates: /Applications/Tailscale.app
   when: not tailscale_app_macos.stat.exists
 
 - name: Check if Tailscale is running (macOS)
