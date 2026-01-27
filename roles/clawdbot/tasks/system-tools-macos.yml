@@ -1,8 +1,8 @@
 ---
 # macOS-specific system tools installation (Homebrew-based)
-# Homebrew refuses to run as root, so we must become the user who owns it
+# Uses clawdbot's Homebrew at /opt/clawdbot with bottle relocation enabled
 
-- name: Install essential system tools (macOS - Homebrew)
+- name: Install essential system tools (macOS - clawdbot's Homebrew)
   community.general.homebrew:
     name:
       # Shells
@@ -29,8 +29,12 @@
       - unzip
       - rsync
     state: present
+    path: "{{ clawdbot_homebrew_bin }}"
   become: true
-  become_user: "{{ homebrew_owner }}"
+  become_user: "{{ clawdbot_user }}"
+  environment:
+    HOME: "{{ clawdbot_home }}"
+    HOMEBREW_RELOCATE_BUILD_PREFIX: "1"
 
 - name: Get current user shell (macOS)
   ansible.builtin.command: dscl . -read /Users/{{ clawdbot_user }} UserShell
@@ -50,15 +54,24 @@
     path: "{{ clawdbot_home }}/.zshrc"
     marker: "# {mark} ANSIBLE MANAGED BLOCK - Clawdbot config"
     block: |
+      # Security: restrictive default permissions for new files/directories
+      umask 077
+
+      # Enable bottle relocation for non-standard Homebrew prefix
+      export HOMEBREW_RELOCATE_BUILD_PREFIX=1
+
       # Enable 256 colors
       export TERM=xterm-256color
       export COLORTERM=truecolor
 
-      # Add Homebrew to PATH (macOS)
-      eval "$(/opt/homebrew/bin/brew shellenv)"
+      # Add clawdbot's Homebrew to PATH (installed at /opt/clawdbot)
+      eval "$(/opt/clawdbot/bin/brew shellenv)"
 
-      # Add pnpm to PATH
-      export PATH="{{ clawdbot_home }}/.local/bin:$PATH"
+      # pnpm configuration
+      export PNPM_HOME="{{ clawdbot_home }}/.local/share/pnpm"
+
+      # Add pnpm and local bin to PATH
+      export PATH="{{ clawdbot_home }}/.local/bin:$PNPM_HOME:$PATH"
 
       # Color support for common tools
       export CLICOLOR=1
