@@ -1,42 +1,31 @@
 ---
-# Clawdbot default variables
+# Clawdbot Ansible - Default Variables
+# macOS Docker Sandbox installation
 
-# Tailscale settings
-tailscale_authkey: ""  # Optional: set to auto-connect during installation
+# Sandbox settings
+clawdbot_sandbox_name: "clawdbot"
+clawdbot_workspace: "{{ ansible_facts['env']['HOME'] }}/.clawdbot"
 
-# Node.js version
-nodejs_version: "22.x"
+# Sandbox template (container image for the sandbox environment)
+# Use custom template for pre-installed tools, or leave empty for default
+clawdbot_sandbox_template: ""
 
-# Clawdbot settings
-clawdbot_port: 3000
+# Tailscale settings (optional - for remote access to sandbox)
+tailscale_authkey: ""
 
-# Clawdbot config directory
-clawdbot_config_dir: "{{ clawdbot_home }}/.clawdbot"
-
-# User settings (will be created as system user)
-clawdbot_user: clawdbot
-clawdbot_home: "{{ '/Users/clawdbot' if ansible_facts['os_family'] == 'Darwin' else '/home/clawdbot' }}"
-clawdbot_group: "{{ 'staff' if ansible_facts['os_family'] == 'Darwin' else 'clawdbot' }}"
-
-# OS-specific settings (set dynamically in tasks)
-homebrew_prefix: "{{ '/opt/homebrew' if ansible_facts['os_family'] == 'Darwin' else '/home/linuxbrew/.linuxbrew' }}"
-package_manager: "{{ 'brew' if ansible_facts['os_family'] == 'Darwin' else 'apt' }}"
+# Node.js version (installed inside sandbox)
+nodejs_version: "22"
 
 # Installation mode: 'release' or 'development'
 # release: Install via pnpm install -g clawdbot@latest
-# development: Clone repo, build from source, link globally
+# development: Clone repo, build from source
 clawdbot_install_mode: "release"
 
 # Development mode settings (only used when clawdbot_install_mode: development)
-clawdbot_repo_url: "https://github.com/clawdbot/clawdbot.git"
+clawdbot_repo_url: "https://github.com/steipete/clawdbot.git"
 clawdbot_repo_branch: "main"
-clawdbot_code_dir: "{{ clawdbot_home }}/code"
-clawdbot_repo_dir: "{{ clawdbot_code_dir }}/clawdbot"
 
-# SSH keys for clawdbot user
-# Add your public SSH keys here to allow SSH access as clawdbot user
-# Example:
-#   clawdbot_ssh_keys:
-#     - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx user@host"
-#     - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDxxxxxxxxxxxxxxxxxxxxxxx user@host"
-clawdbot_ssh_keys: []
+# API keys (set via environment variables or pass with -e)
+# These are passed into the sandbox environment
+anthropic_api_key: "{{ lookup('env', 'ANTHROPIC_API_KEY') }}"
+openai_api_key: "{{ lookup('env', 'OPENAI_API_KEY') }}"
