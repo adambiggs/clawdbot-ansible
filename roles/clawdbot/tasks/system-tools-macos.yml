@@ -1,5 +1,6 @@
 ---
 # macOS-specific system tools installation (Homebrew-based)
+# Homebrew refuses to run as root, so we must become the user who owns it
 
 - name: Install essential system tools (macOS - Homebrew)
   community.general.homebrew:
@@ -28,7 +29,8 @@
       - unzip
       - rsync
     state: present
-  become: false
+  become: true
+  become_user: "{{ homebrew_owner }}"
 
 - name: Get current user shell (macOS)
   ansible.builtin.command: dscl . -read /Users/{{ clawdbot_user }} UserShell

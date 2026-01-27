@@ -67,6 +67,17 @@
         path: "{{ '/opt/homebrew/bin/brew' if is_macos else '/home/linuxbrew/.linuxbrew/bin/brew' }}"
       register: homebrew_check
 
+    - name: Get Homebrew owner (for running brew as correct user)
+      ansible.builtin.stat:
+        path: "{{ '/opt/homebrew/bin/brew' if is_macos else '/home/linuxbrew/.linuxbrew/bin/brew' }}"
+      register: homebrew_stat
+      when: homebrew_check.stat.exists
+
+    - name: Set Homebrew owner fact
+      ansible.builtin.set_fact:
+        homebrew_owner: "{{ homebrew_stat.stat.pw_name | default(ansible_user_id) }}"
+      when: homebrew_check.stat.exists
+
     - name: Install Homebrew (macOS and Linux)
       ansible.builtin.shell: |
         NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
