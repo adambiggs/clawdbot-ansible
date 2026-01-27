@@ -1,0 +1,49 @@
+---
+# Install user-scoped Homebrew for clawdbot on macOS
+# Installed to /opt/clawdbot (13 chars, same as /opt/homebrew) to enable
+# binary relocation of bottles via HOMEBREW_RELOCATE_BUILD_PREFIX.
+
+- name: Check if clawdbot Homebrew exists
+  ansible.builtin.stat:
+    path: /opt/clawdbot/bin/brew
+  register: clawdbot_homebrew_check
+
+- name: Create /opt/clawdbot directory
+  become: true
+  ansible.builtin.file:
+    path: /opt/clawdbot
+    state: directory
+    owner: "{{ clawdbot_user }}"
+    group: "{{ clawdbot_group }}"
+    mode: '0755'
+  when: not clawdbot_homebrew_check.stat.exists
+
+- name: Install Homebrew for clawdbot
+  become: true
+  become_user: "{{ clawdbot_user }}"
+  ansible.builtin.shell: |
+    curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip-components 1 -C /opt/clawdbot
+  args:
+    creates: /opt/clawdbot/bin/brew
+  environment:
+    HOME: "{{ clawdbot_home }}"
+  when: not clawdbot_homebrew_check.stat.exists
+
+- name: Set clawdbot Homebrew path facts
+  ansible.builtin.set_fact:
+    clawdbot_homebrew_prefix: /opt/clawdbot
+    clawdbot_homebrew_bin: /opt/clawdbot/bin
+
+- name: Update Homebrew for clawdbot
+  become: true
+  become_user: "{{ clawdbot_user }}"
+  ansible.builtin.command: /opt/clawdbot/bin/brew update
+  environment:
+    HOME: "{{ clawdbot_home }}"
+    HOMEBREW_RELOCATE_BUILD_PREFIX: "1"
+  changed_when: false
+  when: clawdbot_homebrew_check.stat.exists
+
+- name: Display clawdbot Homebrew status
+  ansible.builtin.debug:
+    msg: "Clawdbot Homebrew installed at /opt/clawdbot (with bottle relocation enabled)"
