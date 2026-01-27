@@ -1,25 +1,11 @@
 ---
-- name: Include user creation tasks
-  ansible.builtin.include_tasks: user.yml
+# Clawdbot Ansible - Main Tasks
+# Simplified Docker Sandbox-based installation for macOS
 
-- name: Include user-scoped Homebrew installation (macOS only)
-  ansible.builtin.include_tasks: homebrew-macos.yml
-  when: ansible_facts['os_family'] == 'Darwin'
+- name: Verify macOS
+  ansible.builtin.fail:
+    msg: "This playbook requires macOS with Docker Desktop. For Linux, use the container-based approach."
+  when: ansible_facts['os_family'] != 'Darwin'
 
-- name: Include system tools installation tasks
-  ansible.builtin.include_tasks: system-tools.yml
-
-- name: Include Tailscale installation tasks
-  ansible.builtin.include_tasks: tailscale.yml
-
-- name: Include Docker installation tasks
-  ansible.builtin.include_tasks: docker.yml
-
-- name: Include firewall configuration tasks
-  ansible.builtin.include_tasks: firewall.yml
-
-- name: Include Node.js installation tasks
-  ansible.builtin.include_tasks: nodejs.yml
-
-- name: Include Clawdbot setup tasks
-  ansible.builtin.include_tasks: clawdbot.yml
+- name: Include Docker Sandbox setup
+  ansible.builtin.include_tasks: sandbox.yml
