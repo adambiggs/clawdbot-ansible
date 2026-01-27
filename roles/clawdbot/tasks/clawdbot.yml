@@ -5,7 +5,7 @@
     path: "{{ item.path }}"
     state: directory
     owner: "{{ clawdbot_user }}"
-    group: "{{ clawdbot_user }}"
+    group: "{{ clawdbot_group }}"
     mode: "{{ item.mode }}"
   loop:
     - { path: "{{ clawdbot_config_dir }}", mode: '0755' }
@@ -20,7 +20,7 @@
     path: "{{ item }}"
     state: directory
     owner: "{{ clawdbot_user }}"
-    group: "{{ clawdbot_user }}"
+    group: "{{ clawdbot_group }}"
     mode: '0755'
   loop:
     - "{{ clawdbot_home }}/.local/share/pnpm"
@@ -33,7 +33,7 @@
     path: "{{ clawdbot_home }}/.local/share/pnpm"
     state: directory
     owner: "{{ clawdbot_user }}"
-    group: "{{ clawdbot_user }}"
+    group: "{{ clawdbot_group }}"
     recurse: true
     mode: '0755'
 
@@ -71,7 +71,7 @@
       export PATH="{{ clawdbot_home }}/.local/bin:$PNPM_HOME:$PATH"
     create: true
     owner: "{{ clawdbot_user }}"
-    group: "{{ clawdbot_user }}"
+    group: "{{ clawdbot_group }}"
     mode: '0644'
     insertafter: EOF
 
