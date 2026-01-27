@@ -18,11 +18,15 @@
     creates: /Applications/Tailscale.app
   when: not tailscale_app_macos.stat.exists
 
-- name: Check if Tailscale is running (macOS)
-  ansible.builtin.command: /Applications/Tailscale.app/Contents/MacOS/Tailscale status --json
-  register: tailscale_status_macos
+- name: Check if Tailscale daemon is running (macOS)
+  ansible.builtin.shell: pgrep -x Tailscale || pgrep -f 'Tailscale.app'
+  register: tailscale_daemon_check
   changed_when: false
   failed_when: false
+
+- name: Set Tailscale running status (macOS)
+  ansible.builtin.set_fact:
+    tailscale_running_macos: "{{ tailscale_daemon_check.rc == 0 }}"
 
 - name: Display Tailscale setup instructions (macOS)
   ansible.builtin.debug:
@@ -44,4 +48,4 @@
       - "  sudo /Applications/Tailscale.app/Contents/MacOS/Tailscale up --authkey tskey-auth-xxxxx"
       - ""
       - "Get auth key from: https://login.tailscale.com/admin/settings/keys"
-  when: tailscale_status_macos.rc != 0
+  when: not tailscale_running_macos
