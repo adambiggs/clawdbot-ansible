@@ -3,13 +3,13 @@
 
 - name: Install Clawdbot globally as clawdbot user (using pnpm)
   ansible.builtin.shell:
-    cmd: pnpm install -g clawdbot@latest
+    cmd: "{{ clawdbot_homebrew_bin | default('/usr/local/bin') }}/pnpm install -g clawdbot@latest"
     executable: /bin/bash
   become: true
   become_user: "{{ clawdbot_user }}"
   environment:
     PNPM_HOME: "{{ clawdbot_home }}/.local/share/pnpm"
-    PATH: "{{ clawdbot_home }}/.local/bin:/home/linuxbrew/.linuxbrew/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+    PATH: "{{ clawdbot_home }}/.local/bin:{{ clawdbot_homebrew_bin | default('/usr/local/bin') }}:/usr/local/bin:/usr/bin:/bin"
     HOME: "{{ clawdbot_home }}"
   register: clawdbot_install
   changed_when: "'Already up to date' not in clawdbot_install.stdout"
