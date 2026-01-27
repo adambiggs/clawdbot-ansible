@@ -3,8 +3,8 @@
 
 - name: Include Linux Docker installation
   ansible.builtin.include_tasks: docker-linux.yml
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Include macOS Docker installation
   ansible.builtin.include_tasks: docker-macos.yml
-  when: ansible_os_family == 'Darwin'
+  when: ansible_facts['os_family'] == 'Darwin'

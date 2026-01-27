@@ -15,12 +15,12 @@ clawdbot_config_dir: "{{ clawdbot_home }}/.clawdbot"
 
 # User settings (will be created as system user)
 clawdbot_user: clawdbot
-clawdbot_home: "{{ '/Users/clawdbot' if ansible_os_family == 'Darwin' else '/home/clawdbot' }}"
-clawdbot_group: "{{ 'staff' if ansible_os_family == 'Darwin' else 'clawdbot' }}"
+clawdbot_home: "{{ '/Users/clawdbot' if ansible_facts['os_family'] == 'Darwin' else '/home/clawdbot' }}"
+clawdbot_group: "{{ 'staff' if ansible_facts['os_family'] == 'Darwin' else 'clawdbot' }}"
 
 # OS-specific settings (set dynamically in tasks)
-homebrew_prefix: "{{ '/opt/homebrew' if ansible_os_family == 'Darwin' else '/home/linuxbrew/.linuxbrew' }}"
-package_manager: "{{ 'brew' if ansible_os_family == 'Darwin' else 'apt' }}"
+homebrew_prefix: "{{ '/opt/homebrew' if ansible_facts['os_family'] == 'Darwin' else '/home/linuxbrew/.linuxbrew' }}"
+package_manager: "{{ 'brew' if ansible_facts['os_family'] == 'Darwin' else 'apt' }}"
 
 # Installation mode: 'release' or 'development'
 # release: Install via pnpm install -g clawdbot@latest

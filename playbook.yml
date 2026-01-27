@@ -6,27 +6,27 @@
   vars:
     ansible_python_interpreter: /usr/bin/python3
     clawdbot_user: clawdbot
-    clawdbot_home: "{{ '/Users/clawdbot' if ansible_os_family == 'Darwin' else '/home/clawdbot' }}"
-    clawdbot_group: "{{ 'staff' if ansible_os_family == 'Darwin' else 'clawdbot' }}"
+    clawdbot_home: "{{ '/Users/clawdbot' if ansible_facts['os_family'] == 'Darwin' else '/home/clawdbot' }}"
+    clawdbot_group: "{{ 'staff' if ansible_facts['os_family'] == 'Darwin' else 'clawdbot' }}"
 
   environment:
     TERM: xterm-256color
     COLORTERM: truecolor
-    PATH: "/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:{{ ansible_env['PATH'] | default('/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin') }}"
+    PATH: "/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:{{ ansible_facts['env']['PATH'] | default('/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin') }}"
 
   pre_tasks:
     - name: Detect operating system
       ansible.builtin.set_fact:
-        is_macos: "{{ ansible_os_family == 'Darwin' }}"
-        is_linux: "{{ ansible_os_family == 'Debian' }}"
-        is_debian: "{{ ansible_distribution in ['Debian', 'Ubuntu'] }}"
-        is_redhat: "{{ ansible_os_family == 'RedHat' }}"
+        is_macos: "{{ ansible_facts['os_family'] == 'Darwin' }}"
+        is_linux: "{{ ansible_facts['os_family'] == 'Debian' }}"
+        is_debian: "{{ ansible_facts['distribution'] in ['Debian', 'Ubuntu'] }}"
+        is_redhat: "{{ ansible_facts['os_family'] == 'RedHat' }}"
 
     - name: Display detected OS
       ansible.builtin.debug:
         msg: |
-          Detected OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
-          OS Family: {{ ansible_os_family }}
+          Detected OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          OS Family: {{ ansible_facts['os_family'] }}
           macOS: {{ is_macos }}
           Linux (Debian/Ubuntu): {{ is_debian }}
           Linux (RedHat/CentOS): {{ is_redhat }}
@@ -75,7 +75,7 @@
 
     - name: Set Homebrew owner fact
       ansible.builtin.set_fact:
-        homebrew_owner: "{{ homebrew_stat.stat.pw_name | default(ansible_user_id) }}"
+        homebrew_owner: "{{ homebrew_stat.stat.pw_name | default(ansible_facts['user_id']) }}"
       when: homebrew_check.stat.exists
 
     - name: Install Homebrew (macOS and Linux)

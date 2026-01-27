@@ -3,16 +3,16 @@
 
 - name: Include Linux system tools installation
   ansible.builtin.include_tasks: system-tools-linux.yml
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Include macOS system tools installation
   ansible.builtin.include_tasks: system-tools-macos.yml
-  when: ansible_os_family == 'Darwin'
+  when: ansible_facts['os_family'] == 'Darwin'
 
 - name: Display unsupported OS warning
   ansible.builtin.fail:
-    msg: "Unsupported OS family: {{ ansible_os_family }}. Only Debian/Ubuntu and macOS are supported."
-  when: ansible_os_family not in ['Debian', 'Darwin']
+    msg: "Unsupported OS family: {{ ansible_facts['os_family'] }}. Only Debian/Ubuntu and macOS are supported."
+  when: ansible_facts['os_family'] not in ['Debian', 'Darwin']
 
 # Common tasks for all operating systems
 
