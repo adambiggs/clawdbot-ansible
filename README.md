@@ -1,285 +1,164 @@
 # Clawdbot Ansible Installer
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Lint](https://github.com/pasogott/clawdbot-ansible/actions/workflows/lint.yml/badge.svg)](https://github.com/pasogott/clawdbot-ansible/actions/workflows/lint.yml)
 [![Ansible](https://img.shields.io/badge/Ansible-2.14+-blue.svg)](https://www.ansible.com/)
-[![Multi-OS](https://img.shields.io/badge/OS-Debian%20%7C%20Ubuntu%20%7C%20macOS-orange.svg)](https://www.debian.org/)
+[![macOS](https://img.shields.io/badge/macOS-Docker%20Desktop-orange.svg)](https://www.docker.com/products/docker-desktop/)
 
-Automated, hardened installation of [Clawdbot](https://github.com/clawdbot/clawdbot) with Docker, Homebrew, and Tailscale VPN support for Linux and macOS.
+Automated installation of [Clawdbot](https://clawd.bot) in a secure Docker Sandbox microVM on macOS.
 
-## Features
+## Why Docker Sandbox?
 
-- 🔒 **Firewall-first**: UFW (Linux) + Application Firewall (macOS) + Docker isolation
-- 🔐 **Tailscale VPN**: Secure remote access without exposing services
-- 🍺 **Homebrew**: Package manager for both Linux and macOS
-- 🐳 **Docker**: Docker CE (Linux) / Docker Desktop (macOS)
-- 🛡️ **Multi-OS Support**: Debian, Ubuntu, and macOS
-- 🚀 **One-command install**: Complete setup in minutes
-- 🔧 **Auto-configuration**: DBus, systemd, environment setup
-- 📦 **pnpm installation**: Uses `pnpm install -g clawdbot@latest`
+Docker Sandbox runs Clawdbot in an isolated microVM with its own Docker daemon. This provides **real security isolation** - not just user separation or firewall rules, but hypervisor-level containment.
 
-## Quick Start
-
-### Release Mode (Recommended)
-
-Install the latest stable version from npm:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/pasogott/clawdbot-ansible/main/install.sh | bash
-```
-
-### Development Mode
-
-Install from source for development or testing:
-
-```bash
-# Clone the installer
-git clone https://github.com/pasogott/clawdbot-ansible.git
-cd clawdbot-ansible
-
-# Install in development mode
-ansible-playbook playbook.yml --ask-become-pass -e clawdbot_install_mode=development
-```
-
-## What Gets Installed
-
-- Tailscale (mesh VPN)
-- UFW firewall (SSH + Tailscale ports only)
-- Docker CE + Compose V2 (for sandboxes)
-- Node.js 22.x + pnpm
-- Clawdbot on host (not containerized)
-- Systemd service (auto-start)
-
-## Post-Install
-
-After installation completes, switch to the clawdbot user:
-
-```bash
-sudo su - clawdbot
-```
-
-Then run the quick-start onboarding wizard:
-
-```bash
-clawdbot onboard --install-daemon
-```
-
-This will:
-- Guide you through the setup wizard
-- Configure your messaging provider (WhatsApp/Telegram/Signal)
-- Install and start the daemon service
-
-### Alternative Manual Setup
-
-```bash
-# Configure manually
-clawdbot configure
-
-# Login to provider
-clawdbot providers login
-
-# Test gateway
-clawdbot gateway
-
-# Install as daemon
-clawdbot daemon install
-clawdbot daemon start
-
-# Check status
-clawdbot status
-clawdbot logs
-```
-
-## Installation Modes
-
-### Release Mode (Default)
-- Installs via `pnpm install -g clawdbot@latest`
-- Gets latest stable version from npm registry
-- Automatic updates via `pnpm install -g clawdbot@latest`
-- **Recommended for production**
-
-### Development Mode
-- Clones from `https://github.com/clawdbot/clawdbot.git`
-- Builds from source with `pnpm build`
-- Symlinks binary to `~/.local/bin/clawdbot`
-- Adds helpful aliases:
-  - `clawdbot-rebuild` - Rebuild after code changes
-  - `clawdbot-dev` - Navigate to repo directory
-  - `clawdbot-pull` - Pull, install deps, and rebuild
-- **Recommended for development and testing**
-
-Enable with: `-e clawdbot_install_mode=development`
-
-## Security
-
-- **Public ports**: SSH (22), Tailscale (41641/udp) only
-- **Docker available**: For Clawdbot sandboxes (isolated execution)
-- **Docker isolation**: Containers can't expose ports externally (DOCKER-USER chain)
-- **Non-root**: Clawdbot runs as unprivileged user
-- **Systemd hardening**: NoNewPrivileges, PrivateTmp
-
-Verify: `nmap -p- YOUR_SERVER_IP` should show only port 22 open.
-
-## Documentation
-
-- [Configuration Guide](docs/configuration.md) - All configuration options
-- [Development Mode](docs/development-mode.md) - Build from source
-- [Security Architecture](docs/security.md) - Security details
-- [Technical Details](docs/architecture.md) - Architecture overview
-- [Troubleshooting](docs/troubleshooting.md) - Common issues
-- [Agent Guidelines](AGENTS.md) - AI agent instructions
+Benefits:
+- **Hypervisor isolation** - Separate kernel, can't access host resources
+- **Private Docker daemon** - Clawdbot's containers are isolated from yours
+- **Workspace sync** - Your project files sync bidirectionally
+- **Host service access** - Connect to LM Studio, Ollama via `host.docker.internal`
 
 ## Requirements
 
-### Linux (Debian/Ubuntu)
-- Debian 11+ or Ubuntu 20.04+
-- Root/sudo access
-- Internet connection
-
-### macOS
 - macOS 11 (Big Sur) or later
-- Homebrew will be installed automatically
-- Admin/sudo access
-- Internet connection
+- Docker Desktop 4.58+ with Docker Sandbox enabled
+- Ansible 2.14+
 
-## What Gets Installed
-
-### Common (All OS)
-- Homebrew package manager
-- Node.js 22.x + pnpm
-- Clawdbot via `pnpm install -g clawdbot@latest`
-- Essential development tools
-- Git, zsh, oh-my-zsh
-
-### Linux-Specific
-- Docker CE + Compose V2
-- UFW firewall (configured)
-- Tailscale VPN
-- systemd service
-
-### macOS-Specific
-- Docker Desktop (via Homebrew Cask)
-- Application Firewall
-- Tailscale app
-
-## Manual Installation
-
-### Release Mode (Default)
+## Quick Start
 
 ```bash
-# Install dependencies
-sudo apt update && sudo apt install -y ansible git
-
-# Clone repository
+# Clone this repo
 git clone https://github.com/pasogott/clawdbot-ansible.git
 cd clawdbot-ansible
 
-# Install Ansible collections
-ansible-galaxy collection install -r requirements.yml
+# Install Ansible if needed
+brew install ansible
 
-# Run installation
-./run-playbook.sh
+# Run the playbook
+ansible-playbook playbook.yml
 ```
 
-### Development Mode
+This creates:
+- A Docker Sandbox microVM for Clawdbot
+- Clawdbot installed inside the sandbox
+- A helper script at `~/.clawdbot/run-clawdbot.sh`
 
-Build from source for development:
+## Usage
+
+### Start Clawdbot
 
 ```bash
-# Same as above, but with development mode flag
-./run-playbook.sh -e clawdbot_install_mode=development
-
-# Or directly:
-ansible-playbook playbook.yml --ask-become-pass -e clawdbot_install_mode=development
+~/.clawdbot/run-clawdbot.sh
 ```
 
-This will:
-- Clone clawdbot repo to `~/code/clawdbot`
-- Run `pnpm install` and `pnpm build`
-- Symlink binary to `~/.local/bin/clawdbot`
-- Add development aliases to `.bashrc`
-
-## Configuration Options
-
-All configuration variables can be found in [`roles/clawdbot/defaults/main.yml`](roles/clawdbot/defaults/main.yml).
-
-You can override them in three ways:
-
-### 1. Via Command Line
+Or manually:
 
 ```bash
-ansible-playbook playbook.yml --ask-become-pass \
+docker sandbox exec -it <sandbox-name> bash
+clawdbot onboard --install-daemon
+```
+
+### Access Host Services (LM Studio, Ollama)
+
+From inside the sandbox, use `host.docker.internal` to reach services on your Mac:
+
+```bash
+# LM Studio API
+curl http://host.docker.internal:1234/v1/models
+
+# Ollama
+curl http://host.docker.internal:11434/api/tags
+```
+
+Make sure your local LLM server binds to `0.0.0.0` (all interfaces), not just `127.0.0.1`.
+
+### Manage Sandbox
+
+```bash
+# List sandboxes
+docker sandbox ls
+
+# Shell into sandbox
+docker sandbox exec -it <sandbox-name> bash
+
+# Stop sandbox (preserves state)
+docker sandbox stop <sandbox-name>
+
+# Remove sandbox (deletes everything inside)
+docker sandbox rm <sandbox-name>
+```
+
+## Configuration
+
+Edit variables before running:
+
+```bash
+ansible-playbook playbook.yml \
   -e clawdbot_install_mode=development \
-  -e "clawdbot_ssh_keys=['ssh-ed25519 AAAAC3... user@host']"
-```
-
-### 2. Via Variables File
-
-```bash
-# Create vars.yml
-cat > vars.yml << EOF
-clawdbot_install_mode: development
-clawdbot_ssh_keys:
-  - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGxxxxxxxx user@host"
-  - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB... user@host"
-clawdbot_repo_url: "https://github.com/YOUR_USERNAME/clawdbot.git"
-clawdbot_repo_branch: "feature-branch"
-tailscale_authkey: "tskey-auth-xxxxxxxxxxxxx"
-EOF
-
-# Use it
-ansible-playbook playbook.yml --ask-become-pass -e @vars.yml
-```
-
-### 3. Edit Defaults Directly
-
-Edit `roles/clawdbot/defaults/main.yml` before running the playbook.
-
-### Available Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `clawdbot_user` | `clawdbot` | System user name |
-| `clawdbot_home` | `/home/clawdbot` | User home directory |
-| `clawdbot_install_mode` | `release` | `release` or `development` |
-| `clawdbot_ssh_keys` | `[]` | List of SSH public keys |
-| `clawdbot_repo_url` | `https://github.com/clawdbot/clawdbot.git` | Git repository (dev mode) |
-| `clawdbot_repo_branch` | `main` | Git branch (dev mode) |
-| `tailscale_authkey` | `""` | Tailscale auth key for auto-connect |
-| `nodejs_version` | `22.x` | Node.js version to install |
-
-See [`roles/clawdbot/defaults/main.yml`](roles/clawdbot/defaults/main.yml) for the complete list.
-
-### Common Configuration Examples
-
-#### SSH Keys for Remote Access
-
-```bash
-ansible-playbook playbook.yml --ask-become-pass \
-  -e "clawdbot_ssh_keys=['ssh-ed25519 AAAAC3... user@host']"
-```
-
-#### Development Mode with Custom Repository
-
-```bash
-ansible-playbook playbook.yml --ask-become-pass \
-  -e clawdbot_install_mode=development \
-  -e clawdbot_repo_url=https://github.com/YOUR_USERNAME/clawdbot.git \
   -e clawdbot_repo_branch=feature-branch
 ```
 
-#### Tailscale Auto-Connect
+### Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `clawdbot_workspace` | `~/.clawdbot` | Host directory synced to sandbox |
+| `clawdbot_install_mode` | `release` | `release` or `development` |
+| `clawdbot_repo_url` | GitHub URL | Git repo for development mode |
+| `clawdbot_repo_branch` | `main` | Branch for development mode |
+| `nodejs_version` | `22` | Node.js major version |
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    Your Mac                         │
+│  ┌───────────────┐    ┌─────────────────────────┐  │
+│  │  LM Studio    │    │  Docker Sandbox microVM │  │
+│  │  :1234        │◄───│  ┌─────────────────────┐│  │
+│  └───────────────┘    │  │    Clawdbot         ││  │
+│                       │  │    + Node.js        ││  │
+│  ┌───────────────┐    │  │    + pnpm           ││  │
+│  │  ~/.clawdbot  │◄──►│  │                     ││  │
+│  │  (workspace)  │sync│  └─────────────────────┘│  │
+│  └───────────────┘    │  Private Docker daemon  │  │
+│                       └─────────────────────────┘  │
+└─────────────────────────────────────────────────────┘
+```
+
+- **Hypervisor isolation**: macOS virtualization.framework
+- **Bidirectional sync**: Workspace files sync between host and sandbox
+- **Network**: Internet access via proxy, host services via `host.docker.internal`
+
+## Linux Support
+
+Docker Sandbox microVMs are macOS/Windows only. For Linux servers, see the `legacy/` directory for the traditional container-based approach, or run Clawdbot directly on the host.
+
+## Troubleshooting
+
+### "docker sandbox" command not found
+
+Ensure Docker Desktop 4.58+ is installed and running. Docker Sandbox is a Docker Desktop feature.
+
+### Can't reach LM Studio from sandbox
+
+1. Make sure LM Studio binds to `0.0.0.0:1234`, not `127.0.0.1:1234`
+2. Use `http://host.docker.internal:1234` from inside the sandbox
+
+### Sandbox creation fails
 
 ```bash
-ansible-playbook playbook.yml --ask-become-pass \
-  -e tailscale_authkey=tskey-auth-xxxxxxxxxxxxx
+# Reset Docker Sandbox state
+docker sandbox reset
+
+# Try again
+ansible-playbook playbook.yml
 ```
 
 ## License
 
 MIT - see [LICENSE](LICENSE)
 
-## Support
+## Links
 
-- Clawdbot: https://github.com/clawdbot/clawdbot
-- This installer: https://github.com/pasogott/clawdbot-ansible/issues
+- [Clawdbot](https://clawd.bot)
+- [Docker Sandbox Docs](https://docs.docker.com/ai/sandboxes/)
+- [This installer](https://github.com/pasogott/clawdbot-ansible)
