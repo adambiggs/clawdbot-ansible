@@ -2,6 +2,7 @@
 # Development mode installation - Clone repo, build from source, link globally
 
 - name: Create code directory
+  become: true
   ansible.builtin.file:
     path: "{{ clawdbot_code_dir }}"
     state: directory
@@ -84,11 +85,13 @@
   when: not dist_dir.stat.exists
 
 - name: Remove existing global clawdbot symlink (if any)
+  become: true
   ansible.builtin.file:
     path: "{{ clawdbot_home }}/.local/bin/clawdbot"
     state: absent
 
 - name: Create symlink to clawdbot binary
+  become: true
   ansible.builtin.file:
     src: "{{ clawdbot_repo_dir }}/bin/clawdbot.js"
     dest: "{{ clawdbot_home }}/.local/bin/clawdbot"
@@ -98,6 +101,7 @@
     force: true
 
 - name: Make clawdbot binary executable
+  become: true
   ansible.builtin.file:
     path: "{{ clawdbot_repo_dir }}/bin/clawdbot.js"
     mode: '0755'
@@ -123,6 +127,7 @@
       🔗 Binary: {{ clawdbot_home }}/.local/bin/clawdbot -> {{ clawdbot_repo_dir }}/bin/clawdbot.js
 
 - name: Add development mode info to .bashrc
+  become: true
   ansible.builtin.blockinfile:
     path: "{{ clawdbot_home }}/.bashrc"
     marker: "# {mark} ANSIBLE MANAGED BLOCK - Clawdbot development"

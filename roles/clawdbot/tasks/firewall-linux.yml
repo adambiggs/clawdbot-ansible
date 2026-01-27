@@ -2,12 +2,14 @@
 # Linux-specific firewall configuration (UFW)
 
 - name: Install UFW
+  become: true
   ansible.builtin.apt:
     name: ufw
     state: present
     update_cache: true
 
 - name: Set UFW default policies
+  become: true
   community.general.ufw:
     direction: "{{ item.direction }}"
     policy: "{{ item.policy }}"
@@ -17,6 +19,7 @@
     - { direction: 'routed', policy: 'deny' }
 
 - name: Allow SSH on port 22
+  become: true
   community.general.ufw:
     rule: allow
     port: '22'
@@ -24,6 +27,7 @@
     comment: 'SSH'
 
 - name: Allow Tailscale UDP port 41641
+  become: true
   community.general.ufw:
     rule: allow
     port: '41641'
@@ -31,6 +35,7 @@
     comment: 'Tailscale'
 
 - name: Get default network interface
+  become: true
   ansible.builtin.shell:
     cmd: |
       set -o pipefail
@@ -40,6 +45,7 @@
   changed_when: false
 
 - name: Create UFW after.rules for Docker isolation
+  become: true
   ansible.builtin.blockinfile:
     path: /etc/ufw/after.rules
     marker: "# {mark} ANSIBLE MANAGED BLOCK - Docker isolation"
@@ -59,12 +65,14 @@
     create: false
 
 - name: Create Docker daemon config directory
+  become: true
   ansible.builtin.file:
     path: /etc/docker
     state: directory
     mode: '0755'
 
 - name: Configure Docker daemon to work with UFW
+  become: true
   ansible.builtin.template:
     src: daemon.json.j2
     dest: /etc/docker/daemon.json
@@ -74,9 +82,11 @@
   notify: Restart docker
 
 - name: Enable UFW
+  become: true
   community.general.ufw:
     state: enabled
 
 - name: Reload UFW
+  become: true
   community.general.ufw:
     state: reloaded

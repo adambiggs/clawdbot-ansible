@@ -1,5 +1,6 @@
 ---
 - name: Create Clawdbot directories (structure only, no config files)
+  become: true
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: directory
@@ -14,6 +15,7 @@
     - { path: "{{ clawdbot_config_dir }}/logs", mode: '0755' }
 
 - name: Create pnpm directories
+  become: true
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
@@ -26,6 +28,7 @@
     - "{{ clawdbot_home }}/.local/bin"
 
 - name: Ensure pnpm directories have correct ownership
+  become: true
   ansible.builtin.file:
     path: "{{ clawdbot_home }}/.local/share/pnpm"
     state: directory
@@ -58,6 +61,7 @@
   when: clawdbot_install_mode == "development"
 
 - name: Configure .bashrc for clawdbot user (base config)
+  become: true
   ansible.builtin.blockinfile:
     path: "{{ clawdbot_home }}/.bashrc"
     marker: "# {mark} ANSIBLE MANAGED BLOCK - Clawdbot pnpm"

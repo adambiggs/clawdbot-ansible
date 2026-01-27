@@ -2,6 +2,7 @@
 # Linux-specific system tools installation (apt-based)
 
 - name: Install essential system tools (Linux - apt)
+  become: true
   ansible.builtin.apt:
     name:
       # Shells
@@ -47,11 +48,13 @@
     update_cache: true
 
 - name: Set zsh as default shell for clawdbot user (Linux)
+  become: true
   ansible.builtin.user:
     name: "{{ clawdbot_user }}"
     shell: /usr/bin/zsh
 
 - name: Deploy global vim configuration (Linux)
+  become: true
   ansible.builtin.template:
     src: vimrc.j2
     dest: /etc/vim/vimrc.local
@@ -60,6 +63,7 @@
     mode: '0644'
 
 - name: Configure .bashrc for clawdbot user (Linux)
+  become: true
   ansible.builtin.blockinfile:
     path: "{{ clawdbot_home }}/.bashrc"
     marker: "# {mark} ANSIBLE MANAGED BLOCK - Clawdbot config"
@@ -89,6 +93,7 @@
     mode: '0644'
 
 - name: Configure .zshrc for clawdbot user (Linux)
+  become: true
   ansible.builtin.blockinfile:
     path: "{{ clawdbot_home }}/.zshrc"
     marker: "# {mark} ANSIBLE MANAGED BLOCK - Clawdbot config"

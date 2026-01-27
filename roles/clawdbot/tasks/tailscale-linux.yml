@@ -2,6 +2,7 @@
 # Linux-specific Tailscale installation (Debian/Ubuntu)
 
 - name: Add Tailscale GPG key
+  become: true
   ansible.builtin.shell:
     cmd: |
       set -o pipefail
@@ -13,6 +14,7 @@
     executable: /bin/bash
 
 - name: Add Tailscale repository
+  become: true
   ansible.builtin.shell:
     cmd: |
       set -o pipefail
@@ -24,15 +26,18 @@
     executable: /bin/bash
 
 - name: Update apt cache after adding Tailscale repo
+  become: true
   ansible.builtin.apt:
     update_cache: true
 
 - name: Install Tailscale
+  become: true
   ansible.builtin.apt:
     name: tailscale
     state: present
 
 - name: Enable Tailscale service (Linux)
+  become: true
   ansible.builtin.systemd:
     name: tailscaled
     enabled: true

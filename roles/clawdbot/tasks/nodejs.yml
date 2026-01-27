@@ -1,5 +1,6 @@
 ---
 - name: Install required packages for Node.js
+  become: true
   ansible.builtin.apt:
     name:
       - ca-certificates
@@ -8,12 +9,14 @@
     state: present
 
 - name: Create directory for NodeSource GPG key
+  become: true
   ansible.builtin.file:
     path: /etc/apt/keyrings
     state: directory
     mode: '0755'
 
 - name: Add NodeSource GPG key
+  become: true
   ansible.builtin.shell:
     cmd: |
       set -o pipefail
@@ -24,6 +27,7 @@
     executable: /bin/bash
 
 - name: Add NodeSource repository
+  become: true
   ansible.builtin.shell:
     cmd: |
       set -o pipefail
@@ -34,15 +38,18 @@
     executable: /bin/bash
 
 - name: Update apt cache after adding NodeSource repo
+  become: true
   ansible.builtin.apt:
     update_cache: true
 
 - name: Install Node.js
+  become: true
   ansible.builtin.apt:
     name: nodejs
     state: present
 
 - name: Install pnpm globally
+  become: true
   ansible.builtin.command: npm install -g pnpm
   args:
     creates: /usr/local/bin/pnpm

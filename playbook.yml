@@ -2,7 +2,6 @@
 - name: Install Clawdbot with Docker and UFW firewall
   hosts: localhost
   connection: local
-  become: true
 
   vars:
     ansible_python_interpreter: /usr/bin/python3
@@ -34,6 +33,7 @@
         update_cache: true
         upgrade: dist
         cache_valid_time: 3600
+      become: true
       when: is_debian
       register: apt_upgrade_result
 
@@ -46,7 +46,6 @@
       ansible.builtin.command: id -u
       register: user_id
       changed_when: false
-      become: false
 
     - name: Set fact for root user
       ansible.builtin.set_fact:
@@ -57,7 +56,6 @@
       args:
         chdir: "{{ playbook_dir }}"
       delegate_to: localhost
-      become: false
       run_once: true
       changed_when: false
 
@@ -95,6 +93,7 @@
       changed_when: false
 
     - name: Create one-time welcome message for clawdbot user
+      become: true
       ansible.builtin.copy:
         dest: /home/clawdbot/.clawdbot-welcome
         owner: clawdbot
@@ -173,6 +172,7 @@
           rm -f ~/.clawdbot-welcome
 
     - name: Add welcome message to .bashrc
+      become: true
       ansible.builtin.lineinfile:
         path: /home/clawdbot/.bashrc
         line: '[ -f ~/.clawdbot-welcome ] && source ~/.clawdbot-welcome'
