@@ -1,14 +1,37 @@
 ---
+# On macOS, we need to provide a UID explicitly to avoid a race condition bug
+# in Ansible's user module (https://github.com/ansible/ansible/issues/73505)
+- name: Find next available UID for clawdbot (macOS)
+  become: true
+  ansible.builtin.shell: |
+    # Find the max UID in system range (200-499) and add 1, or start at 400
+    max_uid=$(dscl . -list /Users UniqueID | awk '$2 >= 200 && $2 < 500 {print $2}' | sort -n | tail -1)
+    echo ${max_uid:-399} | awk '{print $1 + 1}'
+  register: next_uid_result
+  changed_when: false
+  when: ansible_facts['os_family'] == 'Darwin'
+
 - name: Create clawdbot system user
   become: true
   ansible.builtin.user:
-    name: clawdbot
+    name: "{{ clawdbot_user }}"
     comment: "Clawdbot Service User"
     system: true
     shell: /bin/bash
     create_home: true
     home: "{{ clawdbot_home }}"
+    group: "{{ clawdbot_group }}"
+    uid: "{{ next_uid_result.stdout | default(omit) if ansible_facts['os_family'] == 'Darwin' else omit }}"
     state: present
+
+- name: Ensure clawdbot home directory has correct ownership
+  become: true
+  ansible.builtin.file:
+    path: "{{ clawdbot_home }}"
+    state: directory
+    owner: "{{ clawdbot_user }}"
+    group: "{{ clawdbot_group }}"
+    recurse: true
 
 - name: Add clawdbot user to sudoers with NOPASSWD
   become: true
@@ -16,12 +39,12 @@
     dest: /etc/sudoers.d/clawdbot
     mode: '0440'
     owner: root
-    group: "{{ 'wheel' if ansible_os_family == 'Darwin' else 'root' }}"
+    group: "{{ 'wheel' if ansible_facts['os_family'] == 'Darwin' else 'root' }}"
     content: |
       # Allow clawdbot user to run sudo without password
       clawdbot ALL=(ALL) NOPASSWD: ALL
     validate: /usr/sbin/visudo -cf %s
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 # Fix DBus issues for systemd user services
 - name: Get clawdbot user ID
@@ -29,33 +52,33 @@
   ansible.builtin.command: id -u clawdbot
   register: clawdbot_uid
   changed_when: false
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Display clawdbot user ID
   ansible.builtin.debug:
     msg: "Clawdbot user ID: {{ clawdbot_uid.stdout }}"
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Enable lingering for clawdbot user (allows systemd user services without login)
   become: true
   ansible.builtin.command: loginctl enable-linger clawdbot
   changed_when: false
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Create runtime directory for clawdbot user
   become: true
   ansible.builtin.file:
     path: "/run/user/{{ clawdbot_uid.stdout }}"
     state: directory
-    owner: clawdbot
-    group: clawdbot
+    owner: "{{ clawdbot_user }}"
+    group: "{{ clawdbot_group }}"
     mode: '0700'
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Store clawdbot UID as fact for later use
   ansible.builtin.set_fact:
     clawdbot_uid_value: "{{ clawdbot_uid.stdout }}"
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 # SSH key configuration
 - name: Create .ssh directory for clawdbot user
@@ -70,7 +93,7 @@
 - name: Add SSH authorized keys for clawdbot user
   become: true
   ansible.builtin.authorized_key:
-    user: clawdbot
+    user: "{{ clawdbot_user }}"
     state: present
     key: "{{ item }}"
   loop: "{{ clawdbot_ssh_keys }}"
@@ -78,12 +101,12 @@
 
 - name: Display SSH key configuration status
   ansible.builtin.debug:
-    msg: "✅ {{ clawdbot_ssh_keys | length }} SSH key(s) configured for clawdbot user"
+    msg: "{{ clawdbot_ssh_keys | length }} SSH key(s) configured for clawdbot user"
   when: clawdbot_ssh_keys | length > 0
 
 - name: Display SSH key warning if none configured
   ansible.builtin.debug:
-    msg: "⚠️  No SSH keys configured. Set 'clawdbot_ssh_keys' variable to allow SSH access."
+    msg: "No SSH keys configured. Set 'clawdbot_ssh_keys' variable to allow SSH access."
   when: clawdbot_ssh_keys | length == 0
 
 - name: Set XDG_RUNTIME_DIR in .bashrc for clawdbot user
@@ -93,10 +116,10 @@
     line: 'export XDG_RUNTIME_DIR=/run/user/$(id -u)'
     state: present
     create: true
-    owner: clawdbot
-    group: clawdbot
+    owner: "{{ clawdbot_user }}"
+    group: "{{ clawdbot_group }}"
     mode: '0644'
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Set DBUS_SESSION_BUS_ADDRESS in .bashrc for clawdbot user
   become: true
@@ -111,7 +134,7 @@
         fi
       fi
     create: true
-    owner: clawdbot
-    group: clawdbot
+    owner: "{{ clawdbot_user }}"
+    group: "{{ clawdbot_group }}"
     mode: '0644'
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
