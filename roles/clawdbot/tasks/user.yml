@@ -7,7 +7,7 @@
     system: true
     shell: /bin/bash
     create_home: true
-    home: /home/clawdbot
+    home: "{{ clawdbot_home }}"
     state: present
 
 - name: Add clawdbot user to sudoers with NOPASSWD
@@ -16,16 +16,12 @@
     dest: /etc/sudoers.d/clawdbot
     mode: '0440'
     owner: root
-    group: root
+    group: "{{ 'wheel' if ansible_os_family == 'Darwin' else 'root' }}"
     content: |
       # Allow clawdbot user to run sudo without password
       clawdbot ALL=(ALL) NOPASSWD: ALL
     validate: /usr/sbin/visudo -cf %s
-
-- name: Set clawdbot user as primary user for installation
-  ansible.builtin.set_fact:
-    clawdbot_user: clawdbot
-    clawdbot_home: /home/clawdbot
+  when: ansible_os_family == 'Debian'
 
 # Fix DBus issues for systemd user services
 - name: Get clawdbot user ID
@@ -67,8 +63,8 @@
   ansible.builtin.file:
     path: "{{ clawdbot_home }}/.ssh"
     state: directory
-    owner: clawdbot
-    group: clawdbot
+    owner: "{{ clawdbot_user }}"
+    group: "{{ clawdbot_group }}"
     mode: '0700'
 
 - name: Add SSH authorized keys for clawdbot user
@@ -93,7 +89,7 @@
 - name: Set XDG_RUNTIME_DIR in .bashrc for clawdbot user
   become: true
   ansible.builtin.lineinfile:
-    path: /home/clawdbot/.bashrc
+    path: "{{ clawdbot_home }}/.bashrc"
     line: 'export XDG_RUNTIME_DIR=/run/user/$(id -u)'
     state: present
     create: true
@@ -105,7 +101,7 @@
 - name: Set DBUS_SESSION_BUS_ADDRESS in .bashrc for clawdbot user
   become: true
   ansible.builtin.blockinfile:
-    path: /home/clawdbot/.bashrc
+    path: "{{ clawdbot_home }}/.bashrc"
     marker: "# {mark} ANSIBLE MANAGED BLOCK - DBus config"
     block: |
       # DBus session bus configuration

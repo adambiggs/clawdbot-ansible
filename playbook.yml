@@ -5,6 +5,9 @@
 
   vars:
     ansible_python_interpreter: /usr/bin/python3
+    clawdbot_user: clawdbot
+    clawdbot_home: "{{ '/Users/clawdbot' if ansible_os_family == 'Darwin' else '/home/clawdbot' }}"
+    clawdbot_group: "{{ 'staff' if ansible_os_family == 'Darwin' else 'clawdbot' }}"
 
   environment:
     TERM: xterm-256color
@@ -95,9 +98,9 @@
     - name: Create one-time welcome message for clawdbot user
       become: true
       ansible.builtin.copy:
-        dest: /home/clawdbot/.clawdbot-welcome
+        dest: "{{ clawdbot_home }}/.clawdbot-welcome"
         owner: clawdbot
-        group: clawdbot
+        group: "{{ clawdbot_group }}"
         mode: '0644'
         content: |
           echo ""
@@ -174,7 +177,7 @@
     - name: Add welcome message to .bashrc
       become: true
       ansible.builtin.lineinfile:
-        path: /home/clawdbot/.bashrc
+        path: "{{ clawdbot_home }}/.bashrc"
         line: '[ -f ~/.clawdbot-welcome ] && source ~/.clawdbot-welcome'
         state: present
         insertafter: EOF
