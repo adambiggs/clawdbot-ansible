@@ -1,16 +1,35 @@
 ---
 # macOS-specific Docker installation (Docker Desktop)
+# Using direct DMG/pkg download avoids Homebrew cask sudo issues
 
 - name: Check if Docker Desktop is installed (macOS)
   ansible.builtin.stat:
     path: /Applications/Docker.app
   register: docker_desktop
 
-- name: Install Docker Desktop via Homebrew Cask (macOS)
-  community.general.homebrew_cask:
-    name: docker
-    state: present
-  become: false
+- name: Get macOS architecture
+  ansible.builtin.command: uname -m
+  register: macos_arch
+  changed_when: false
+  when: not docker_desktop.stat.exists
+
+- name: Download Docker Desktop DMG (macOS)
+  become: true
+  ansible.builtin.get_url:
+    url: "https://desktop.docker.com/mac/main/{{ 'arm64' if macos_arch.stdout == 'arm64' else 'amd64' }}/Docker.dmg"
+    dest: /tmp/Docker.dmg
+    mode: '0644'
+  when: not docker_desktop.stat.exists
+
+- name: Mount Docker DMG and install (macOS)
+  become: true
+  ansible.builtin.shell: |
+    hdiutil attach /tmp/Docker.dmg -nobrowse -quiet
+    cp -R "/Volumes/Docker/Docker.app" /Applications/
+    hdiutil detach "/Volumes/Docker" -quiet
+    rm -f /tmp/Docker.dmg
+  args:
+    creates: /Applications/Docker.app
   when: not docker_desktop.stat.exists
 
 - name: Wait for Docker Desktop to be available (macOS)
