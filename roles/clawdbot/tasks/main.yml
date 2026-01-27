@@ -1,12 +1,12 @@
 ---
+- name: Include user creation tasks
+  ansible.builtin.include_tasks: user.yml
+
 - name: Include system tools installation tasks
   ansible.builtin.include_tasks: system-tools.yml
 
 - name: Include Tailscale installation tasks
   ansible.builtin.include_tasks: tailscale.yml
-
-- name: Include user creation tasks
-  ansible.builtin.include_tasks: user.yml
 
 - name: Include Docker installation tasks
   ansible.builtin.include_tasks: docker.yml
