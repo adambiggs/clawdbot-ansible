@@ -1,0 +1,179 @@
+---
+# Docker Sandbox setup for Clawdbot
+# Creates an isolated microVM with private Docker daemon for secure agent execution
+
+- name: Check if Docker Desktop is running
+  ansible.builtin.command: docker info
+  register: docker_info
+  changed_when: false
+  failed_when: docker_info.rc != 0
+
+- name: Check Docker Sandbox CLI availability
+  ansible.builtin.command: docker sandbox version
+  register: sandbox_version
+  changed_when: false
+  failed_when: sandbox_version.rc != 0
+
+- name: Display Docker Sandbox version
+  ansible.builtin.debug:
+    msg: "Docker Sandbox: {{ sandbox_version.stdout }}"
+
+- name: Create Clawdbot workspace directory
+  ansible.builtin.file:
+    path: "{{ clawdbot_workspace }}"
+    state: directory
+    mode: '0755'
+
+- name: Check if Clawdbot sandbox already exists
+  ansible.builtin.command: docker sandbox ls --format json
+  register: sandbox_list
+  changed_when: false
+
+- name: Parse existing sandboxes
+  ansible.builtin.set_fact:
+    existing_sandboxes: "{{ sandbox_list.stdout | default('[]') | from_json | default([]) }}"
+  when: sandbox_list.stdout | length > 0
+
+- name: Set empty sandbox list if none exist
+  ansible.builtin.set_fact:
+    existing_sandboxes: []
+  when: sandbox_list.stdout | length == 0
+
+- name: Check if clawdbot sandbox exists
+  ansible.builtin.set_fact:
+    clawdbot_sandbox_exists: "{{ existing_sandboxes | selectattr('name', 'search', clawdbot_sandbox_name) | list | length > 0 }}"
+
+- name: Create Clawdbot sandbox
+  ansible.builtin.command:
+    cmd: >
+      docker sandbox create cagent
+      {% if clawdbot_sandbox_template %}--template {{ clawdbot_sandbox_template }}{% endif %}
+      {{ clawdbot_workspace }}
+  register: sandbox_create
+  when: not clawdbot_sandbox_exists
+  changed_when: sandbox_create.rc == 0
+
+- name: Extract sandbox name from creation output
+  ansible.builtin.set_fact:
+    created_sandbox_name: "{{ sandbox_create.stdout | regex_search('Created sandbox ([\\w-]+)', '\\1') | first }}"
+  when: not clawdbot_sandbox_exists and sandbox_create.rc == 0
+
+- name: Get sandbox name (existing or newly created)
+  ansible.builtin.set_fact:
+    sandbox_name: "{{ created_sandbox_name | default(existing_sandboxes | selectattr('name', 'search', clawdbot_sandbox_name) | map(attribute='name') | first) }}"
+
+- name: Display sandbox info
+  ansible.builtin.debug:
+    msg: |
+      Sandbox: {{ sandbox_name }}
+      Workspace: {{ clawdbot_workspace }}
+
+- name: Configure network proxy bypass for host services (LM Studio, etc.)
+  ansible.builtin.command:
+    cmd: docker sandbox network proxy {{ sandbox_name }} --bypass-host host.docker.internal
+  changed_when: true
+
+- name: Install Node.js in sandbox
+  ansible.builtin.command:
+    cmd: >
+      docker sandbox exec {{ sandbox_name }} bash -c
+      "curl -fsSL https://deb.nodesource.com/setup_{{ nodejs_version }}.x | sudo -E bash - &&
+       sudo apt-get install -y nodejs"
+  register: nodejs_install
+  changed_when: "'is already the newest version' not in nodejs_install.stdout"
+
+- name: Install pnpm in sandbox
+  ansible.builtin.command:
+    cmd: docker sandbox exec {{ sandbox_name }} bash -c "sudo npm install -g pnpm"
+  register: pnpm_install
+  changed_when: "'added' in pnpm_install.stdout or 'updated' in pnpm_install.stdout"
+
+- name: Install Clawdbot in sandbox (release mode)
+  ansible.builtin.command:
+    cmd: docker sandbox exec {{ sandbox_name }} bash -c "pnpm install -g clawdbot@latest"
+  register: clawdbot_install
+  when: clawdbot_install_mode == 'release'
+  changed_when: "'added' in clawdbot_install.stdout"
+
+- name: Clone and build Clawdbot in sandbox (development mode)
+  when: clawdbot_install_mode == 'development'
+  block:
+    - name: Clone Clawdbot repository
+      ansible.builtin.command:
+        cmd: >
+          docker sandbox exec {{ sandbox_name }} bash -c
+          "git clone --branch {{ clawdbot_repo_branch }} {{ clawdbot_repo_url }} ~/clawdbot"
+      register: git_clone
+      changed_when: git_clone.rc == 0
+      failed_when: git_clone.rc != 0 and 'already exists' not in git_clone.stderr
+
+    - name: Install dependencies and build
+      ansible.builtin.command:
+        cmd: >
+          docker sandbox exec {{ sandbox_name }} bash -c
+          "cd ~/clawdbot && pnpm install && pnpm build"
+      changed_when: true
+
+    - name: Link Clawdbot globally
+      ansible.builtin.command:
+        cmd: >
+          docker sandbox exec {{ sandbox_name }} bash -c
+          "cd ~/clawdbot && pnpm link --global"
+      changed_when: true
+
+- name: Verify Clawdbot installation
+  ansible.builtin.command:
+    cmd: docker sandbox exec {{ sandbox_name }} bash -c "clawdbot --version"
+  register: clawdbot_version
+  changed_when: false
+
+- name: Display Clawdbot version
+  ansible.builtin.debug:
+    msg: "Clawdbot {{ clawdbot_version.stdout }} installed in sandbox {{ sandbox_name }}"
+
+- name: Create sandbox run script
+  ansible.builtin.copy:
+    dest: "{{ clawdbot_workspace }}/run-clawdbot.sh"
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      # Run Clawdbot in Docker Sandbox
+      # This script starts the sandbox and runs Clawdbot gateway
+
+      SANDBOX_NAME="{{ sandbox_name }}"
+
+      echo "Starting Clawdbot in sandbox: $SANDBOX_NAME"
+      echo "Workspace: {{ clawdbot_workspace }}"
+      echo ""
+      echo "To access host services (like LM Studio), use: host.docker.internal:PORT"
+      echo ""
+
+      docker sandbox exec -it "$SANDBOX_NAME" bash -c "clawdbot gateway"
+
+- name: Display next steps
+  ansible.builtin.debug:
+    msg: |
+      
+      ============================================================
+      Clawdbot Sandbox Setup Complete!
+      ============================================================
+      
+      Sandbox: {{ sandbox_name }}
+      Workspace: {{ clawdbot_workspace }}
+      
+      Quick Start:
+        {{ clawdbot_workspace }}/run-clawdbot.sh
+      
+      Or manually:
+        docker sandbox exec -it {{ sandbox_name }} bash
+        clawdbot onboard --install-daemon
+      
+      Access host services (LM Studio, etc.):
+        http://host.docker.internal:1234
+      
+      Manage sandbox:
+        docker sandbox ls              # List sandboxes
+        docker sandbox stop {{ sandbox_name }}   # Stop sandbox
+        docker sandbox rm {{ sandbox_name }}     # Remove sandbox
+      
+      ============================================================
