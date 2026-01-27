@@ -7,7 +7,7 @@
     path: "{{ clawdbot_code_dir }}"
     state: directory
     owner: "{{ clawdbot_user }}"
-    group: "{{ clawdbot_user }}"
+    group: "{{ clawdbot_group }}"
     mode: '0755'
 
 - name: Check if clawdbot repository already exists
@@ -50,7 +50,7 @@
   become_user: "{{ clawdbot_user }}"
   environment:
     PNPM_HOME: "{{ clawdbot_home }}/.local/share/pnpm"
-    PATH: "{{ clawdbot_home }}/.local/bin:/home/linuxbrew/.linuxbrew/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+    PATH: "{{ clawdbot_home }}/.local/bin:{{ clawdbot_homebrew_bin | default('/usr/bin') }}:/usr/local/bin:/usr/bin:/bin"
     HOME: "{{ clawdbot_home }}"
   register: pnpm_install_result
   changed_when: "'Already up to date' not in pnpm_install_result.stdout"
@@ -64,7 +64,7 @@
   become_user: "{{ clawdbot_user }}"
   environment:
     PNPM_HOME: "{{ clawdbot_home }}/.local/share/pnpm"
-    PATH: "{{ clawdbot_home }}/.local/bin:/home/linuxbrew/.linuxbrew/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+    PATH: "{{ clawdbot_home }}/.local/bin:{{ clawdbot_homebrew_bin | default('/usr/bin') }}:/usr/local/bin:/usr/bin:/bin"
     HOME: "{{ clawdbot_home }}"
   register: pnpm_build_result
   changed_when: true  # Build always changes dist/ directory
@@ -97,7 +97,7 @@
     dest: "{{ clawdbot_home }}/.local/bin/clawdbot"
     state: link
     owner: "{{ clawdbot_user }}"
-    group: "{{ clawdbot_user }}"
+    group: "{{ clawdbot_group }}"
     force: true
 
 - name: Make clawdbot binary executable
@@ -106,7 +106,7 @@
     path: "{{ clawdbot_repo_dir }}/bin/clawdbot.js"
     mode: '0755'
     owner: "{{ clawdbot_user }}"
-    group: "{{ clawdbot_user }}"
+    group: "{{ clawdbot_group }}"
 
 - name: Verify clawdbot installation from development build
   ansible.builtin.shell:
@@ -141,5 +141,5 @@
       alias clawdbot-pull='cd {{ clawdbot_repo_dir }} && git pull && pnpm install && pnpm build'
     create: true
     owner: "{{ clawdbot_user }}"
-    group: "{{ clawdbot_user }}"
+    group: "{{ clawdbot_group }}"
     mode: '0644'
