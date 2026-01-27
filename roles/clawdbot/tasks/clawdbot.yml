@@ -42,9 +42,13 @@
     cmd: |
       pnpm config set global-dir {{ clawdbot_home }}/.local/share/pnpm
       pnpm config set global-bin-dir {{ clawdbot_home }}/.local/bin
+      pnpm config set store-dir {{ clawdbot_home }}/.local/share/pnpm/store
     executable: /bin/bash
   become: true
   become_user: "{{ clawdbot_user }}"
+  environment:
+    HOME: "{{ clawdbot_home }}"
+    PATH: "{{ clawdbot_homebrew_bin | default('/usr/bin') }}:{{ ansible_facts['env']['PATH'] }}"
   changed_when: true  # Always consider changed as pnpm config may update
 
 - name: Display installation mode
