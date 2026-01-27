@@ -1,17 +1,25 @@
 ---
 # macOS-specific Node.js installation (Homebrew-based)
-# Homebrew refuses to run as root, so we must become the user who owns it
+# Uses clawdbot's Homebrew at /opt/clawdbot with bottle relocation enabled
 
 - name: Install Node.js via Homebrew (macOS)
   community.general.homebrew:
     name: node
     state: present
+    path: "{{ clawdbot_homebrew_bin }}"
   become: true
-  become_user: "{{ homebrew_owner }}"
+  become_user: "{{ clawdbot_user }}"
+  environment:
+    HOME: "{{ clawdbot_home }}"
+    HOMEBREW_RELOCATE_BUILD_PREFIX: "1"
 
 - name: Install pnpm via Homebrew (macOS)
   community.general.homebrew:
     name: pnpm
     state: present
+    path: "{{ clawdbot_homebrew_bin }}"
   become: true
-  become_user: "{{ homebrew_owner }}"
+  become_user: "{{ clawdbot_user }}"
+  environment:
+    HOME: "{{ clawdbot_home }}"
+    HOMEBREW_RELOCATE_BUILD_PREFIX: "1"
