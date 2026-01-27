@@ -2,6 +2,10 @@
 - name: Include user creation tasks
   ansible.builtin.include_tasks: user.yml
 
+- name: Include user-scoped Homebrew installation (macOS only)
+  ansible.builtin.include_tasks: homebrew-macos.yml
+  when: ansible_facts['os_family'] == 'Darwin'
+
 - name: Include system tools installation tasks
   ansible.builtin.include_tasks: system-tools.yml
 
