@@ -1,18 +1,15 @@
 ---
-- name: Install Clawdbot with Docker and UFW firewall
+- name: Install Clawdbot in Docker Sandbox
   hosts: localhost
   connection: local
 
   vars:
     ansible_python_interpreter: /usr/bin/python3
-    clawdbot_user: clawdbot
-    clawdbot_home: "{{ '/Users/clawdbot' if ansible_facts['os_family'] == 'Darwin' else '/home/clawdbot' }}"
-    clawdbot_group: "{{ 'staff' if ansible_facts['os_family'] == 'Darwin' else 'clawdbot' }}"
 
   environment:
     TERM: xterm-256color
     COLORTERM: truecolor
-    PATH: "/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:{{ ansible_facts['env']['PATH'] | default('/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin') }}"
+    PATH: "/opt/homebrew/bin:{{ ansible_facts['env']['PATH'] | default('/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin') }}"
 
   pre_tasks:
     - name: Detect operating system
@@ -28,31 +25,13 @@
           Detected OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
           OS Family: {{ ansible_facts['os_family'] }}
           macOS: {{ is_macos }}
-          Linux (Debian/Ubuntu): {{ is_debian }}
-          Linux (RedHat/CentOS): {{ is_redhat }}
 
-    - name: Update apt cache and upgrade all packages (Debian/Ubuntu)
-      ansible.builtin.apt:
-        update_cache: true
-        upgrade: dist
-        cache_valid_time: 3600
-      become: true
-      when: is_debian
-      register: apt_upgrade_result
-
-    - name: Display apt upgrade results
-      ansible.builtin.debug:
-        msg: "✅ System packages updated and upgraded"
-      when: is_debian and apt_upgrade_result.changed
-
-    - name: Check if running as root
-      ansible.builtin.command: id -u
-      register: user_id
-      changed_when: false
-
-    - name: Set fact for root user
-      ansible.builtin.set_fact:
-        is_root: "{{ user_id.stdout == '0' }}"
+    - name: Verify macOS requirement
+      ansible.builtin.fail:
+        msg: |
+          This playbook requires macOS with Docker Desktop.
+          Docker Sandbox is a Docker Desktop feature and is not available on Linux.
+      when: not is_macos
 
     - name: Install Ansible collections
       ansible.builtin.command: ansible-galaxy collection install -r requirements.yml
@@ -61,36 +40,6 @@
       delegate_to: localhost
       run_once: true
       changed_when: false
-
-    - name: Check if Homebrew is installed
-      ansible.builtin.stat:
-        path: "{{ '/opt/homebrew/bin/brew' if is_macos else '/home/linuxbrew/.linuxbrew/bin/brew' }}"
-      register: homebrew_check
-
-    - name: Get Homebrew owner (for running brew as correct user)
-      ansible.builtin.stat:
-        path: "{{ '/opt/homebrew/bin/brew' if is_macos else '/home/linuxbrew/.linuxbrew/bin/brew' }}"
-      register: homebrew_stat
-      when: homebrew_check.stat.exists
-
-    - name: Set Homebrew owner fact
-      ansible.builtin.set_fact:
-        homebrew_owner: "{{ homebrew_stat.stat.pw_name | default(ansible_facts['user_id']) }}"
-      when: homebrew_check.stat.exists
-
-    - name: Install Homebrew (macOS and Linux)
-      ansible.builtin.shell: |
-        NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-      args:
-        creates: "{{ '/opt/homebrew/bin/brew' if is_macos else '/home/linuxbrew/.linuxbrew/bin/brew' }}"
-      when: not homebrew_check.stat.exists
-      register: homebrew_install
-
-
-    - name: Display Homebrew installation status
-      ansible.builtin.debug:
-        msg: "✅ Homebrew installed successfully"
-      when: homebrew_install is defined and homebrew_install.changed
 
   roles:
     - clawdbot
@@ -106,93 +55,6 @@
       ansible.builtin.command: /tmp/show-lobster.sh
       changed_when: false
 
-    - name: Create one-time welcome message for clawdbot user
-      become: true
-      ansible.builtin.copy:
-        dest: "{{ clawdbot_home }}/.clawdbot-welcome"
-        owner: clawdbot
-        group: "{{ clawdbot_group }}"
-        mode: '0644'
-        content: |
-          echo ""
-          echo "╔════════════════════════════════════════════════════════╗"
-          echo "║        📋 Clawdbot Setup - Next Steps                 ║"
-          echo "╚════════════════════════════════════════════════════════╝"
-          echo ""
-          echo "You are: $(whoami)@$(hostname)"
-          echo "Home: $HOME"
-          echo "OS: $(uname -s) $(uname -r)"
-          echo ""
-          echo "Environment is configured:"
-          echo "  ✓ XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR:-not set}"
-          echo "  ✓ DBUS_SESSION_BUS_ADDRESS: ${DBUS_SESSION_BUS_ADDRESS:-not set}"
-          echo "  ✓ Homebrew: $(which brew 2>/dev/null || echo 'not found')"
-          echo "  ✓ Clawdbot: $(clawdbot --version 2>/dev/null || echo 'not found')"
-          echo ""
-          echo "────────────────────────────────────────────────────────"
-          echo "🚀 Quick Start - Run This Command:"
-          echo "────────────────────────────────────────────────────────"
-          echo ""
-          echo "    clawdbot onboard --install-daemon"
-          echo ""
-          echo "This will:"
-          echo "  • Guide you through the setup wizard"
-          echo "  • Configure your messaging provider"
-          echo "  • Install and start the daemon service"
-          echo ""
-          echo "────────────────────────────────────────────────────────"
-          echo "📚 Alternative Manual Setup:"
-          echo "────────────────────────────────────────────────────────"
-          echo ""
-          echo "1️⃣  Interactive onboarding (recommended):"
-          echo "    clawdbot onboard --install-daemon"
-          echo ""
-          echo "2️⃣  Manual configuration:"
-          echo "    clawdbot configure"
-          echo "    nano ~/.clawdbot/clawdbot.json"
-          echo ""
-          echo "3️⃣  Login to messaging provider:"
-          echo "    clawdbot providers login"
-          echo ""
-          echo "4️⃣  Test the gateway:"
-          echo "    clawdbot gateway"
-          echo ""
-          echo "5️⃣  Install as daemon (if not using onboard):"
-          echo "    clawdbot daemon install"
-          echo "    clawdbot daemon start"
-          echo ""
-          echo "────────────────────────────────────────────────────────"
-          echo "🔧 Useful Commands:"
-          echo "────────────────────────────────────────────────────────"
-          echo ""
-          echo "  • View logs:        clawdbot logs"
-          echo "  • Check status:     clawdbot status"
-          echo "  • Stop daemon:      clawdbot daemon stop"
-          echo "  • Restart daemon:   clawdbot daemon restart"
-          echo "  • Troubleshoot:     clawdbot doctor"
-          echo "  • List agents:      clawdbot agents list"
-          echo ""
-          echo "────────────────────────────────────────────────────────"
-          echo "🌐 Connect Tailscale VPN (optional):"
-          echo "────────────────────────────────────────────────────────"
-          echo ""
-          echo "    exit"
-          echo "    sudo tailscale up"
-          echo ""
-          echo "────────────────────────────────────────────────────────"
-          echo ""
-          echo "Type 'exit' to return to your previous user"
-          echo ""
-          rm -f ~/.clawdbot-welcome
-
-    - name: Add welcome message to .bashrc
-      become: true
-      ansible.builtin.lineinfile:
-        path: "{{ clawdbot_home }}/.bashrc"
-        line: '[ -f ~/.clawdbot-welcome ] && source ~/.clawdbot-welcome'
-        state: present
-        insertafter: EOF
-
     - name: Notify that playbook is complete
       ansible.builtin.debug:
-        msg: "✅ Clawdbot installation complete!"
+        msg: "Clawdbot installation complete!"

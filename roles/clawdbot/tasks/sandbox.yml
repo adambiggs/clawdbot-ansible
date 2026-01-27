@@ -25,42 +25,36 @@
     mode: '0755'
 
 - name: Check if Clawdbot sandbox already exists
-  ansible.builtin.command: docker sandbox ls --format json
+  ansible.builtin.command: docker sandbox ls --json
   register: sandbox_list
   changed_when: false
 
 - name: Parse existing sandboxes
   ansible.builtin.set_fact:
-    existing_sandboxes: "{{ sandbox_list.stdout | default('[]') | from_json | default([]) }}"
-  when: sandbox_list.stdout | length > 0
-
-- name: Set empty sandbox list if none exist
-  ansible.builtin.set_fact:
-    existing_sandboxes: []
-  when: sandbox_list.stdout | length == 0
+    existing_sandboxes: "{{ (sandbox_list.stdout | from_json).vms | default((sandbox_list.stdout | from_json).sandboxes) | default([]) }}"
 
 - name: Check if clawdbot sandbox exists
   ansible.builtin.set_fact:
     clawdbot_sandbox_exists: "{{ existing_sandboxes | selectattr('name', 'search', clawdbot_sandbox_name) | list | length > 0 }}"
 
+- name: Build sandbox create command
+  ansible.builtin.set_fact:
+    sandbox_create_cmd: >-
+      docker sandbox create
+      --name {{ clawdbot_sandbox_name }}
+      {% if clawdbot_sandbox_template %}-t {{ clawdbot_sandbox_template }}{% endif %}
+      cagent {{ clawdbot_workspace }}
+
 - name: Create Clawdbot sandbox
   ansible.builtin.command:
-    cmd: >
-      docker sandbox create cagent
-      {% if clawdbot_sandbox_template %}--template {{ clawdbot_sandbox_template }}{% endif %}
-      {{ clawdbot_workspace }}
+    cmd: "{{ sandbox_create_cmd }}"
   register: sandbox_create
   when: not clawdbot_sandbox_exists
   changed_when: sandbox_create.rc == 0
 
-- name: Extract sandbox name from creation output
+- name: Set sandbox name
   ansible.builtin.set_fact:
-    created_sandbox_name: "{{ sandbox_create.stdout | regex_search('Created sandbox ([\\w-]+)', '\\1') | first }}"
-  when: not clawdbot_sandbox_exists and sandbox_create.rc == 0
-
-- name: Get sandbox name (existing or newly created)
-  ansible.builtin.set_fact:
-    sandbox_name: "{{ created_sandbox_name | default(existing_sandboxes | selectattr('name', 'search', clawdbot_sandbox_name) | map(attribute='name') | first) }}"
+    sandbox_name: "{{ clawdbot_sandbox_name }}"
 
 - name: Display sandbox info
   ansible.builtin.debug:
@@ -88,12 +82,18 @@
   register: pnpm_install
   changed_when: "'added' in pnpm_install.stdout or 'updated' in pnpm_install.stdout"
 
+- name: Configure pnpm global bin directory
+  ansible.builtin.command:
+    cmd: docker sandbox exec {{ sandbox_name }} bash -c "SHELL=/bin/bash pnpm setup"
+  register: pnpm_setup
+  changed_when: "'Appended' in pnpm_setup.stdout"
+
 - name: Install Clawdbot in sandbox (release mode)
   ansible.builtin.command:
-    cmd: docker sandbox exec {{ sandbox_name }} bash -c "pnpm install -g clawdbot@latest"
+    cmd: docker sandbox exec {{ sandbox_name }} bash -c "source ~/.bashrc && pnpm install -g clawdbot@latest"
   register: clawdbot_install
   when: clawdbot_install_mode == 'release'
-  changed_when: "'added' in clawdbot_install.stdout"
+  changed_when: "'Done' in clawdbot_install.stdout"
 
 - name: Clone and build Clawdbot in sandbox (development mode)
   when: clawdbot_install_mode == 'development'
@@ -123,7 +123,7 @@
 
 - name: Verify Clawdbot installation
   ansible.builtin.command:
-    cmd: docker sandbox exec {{ sandbox_name }} bash -c "clawdbot --version"
+    cmd: docker sandbox exec {{ sandbox_name }} bash -c "source ~/.bashrc && clawdbot --version"
   register: clawdbot_version
   changed_when: false
 
@@ -148,7 +148,7 @@
       echo "To access host services (like LM Studio), use: host.docker.internal:PORT"
       echo ""
 
-      docker sandbox exec -it "$SANDBOX_NAME" bash -c "clawdbot gateway"
+      docker sandbox exec -it "$SANDBOX_NAME" bash -c "source ~/.bashrc && clawdbot gateway"
 
 - name: Display next steps
   ansible.builtin.debug:
