@@ -101,6 +101,14 @@
   register: brew_path_config
   changed_when: brew_path_config.rc == 0
 
+- name: Install GCC for building brew packages from source
+  ansible.builtin.command:
+    cmd: >
+      docker sandbox exec {{ sandbox_name }} bash -c
+      "source ~/.bashrc && brew list gcc &>/dev/null || brew install gcc"
+  register: gcc_install
+  changed_when: "'Installing gcc' in gcc_install.stdout"
+
 - name: Install pnpm in sandbox
   ansible.builtin.command:
     cmd: docker sandbox exec {{ sandbox_name }} bash -c "sudo npm install -g pnpm"
