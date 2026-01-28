@@ -76,6 +76,31 @@
   register: nodejs_install
   changed_when: "'is already the newest version' not in nodejs_install.stdout"
 
+- name: Configure NODE_OPTIONS for proxy support
+  ansible.builtin.command:
+    cmd: >
+      docker sandbox exec {{ sandbox_name }} bash -c
+      "grep -q 'NODE_OPTIONS' ~/.bashrc || echo 'export NODE_OPTIONS=\"--use-env-proxy\"' >> ~/.bashrc"
+  register: node_options_config
+  changed_when: node_options_config.rc == 0
+
+- name: Install Linuxbrew in sandbox
+  ansible.builtin.command:
+    cmd: >
+      docker sandbox exec {{ sandbox_name }} bash -c
+      "test -f /home/linuxbrew/.linuxbrew/bin/brew ||
+       NONINTERACTIVE=1 /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+  register: brew_install
+  changed_when: "'Installation successful' in brew_install.stdout"
+
+- name: Configure Linuxbrew in PATH
+  ansible.builtin.command:
+    cmd: >
+      docker sandbox exec {{ sandbox_name }} bash -c
+      "grep -q 'linuxbrew' ~/.bashrc || echo 'eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash)\"' >> ~/.bashrc"
+  register: brew_path_config
+  changed_when: brew_path_config.rc == 0
+
 - name: Install pnpm in sandbox
   ansible.builtin.command:
     cmd: docker sandbox exec {{ sandbox_name }} bash -c "sudo npm install -g pnpm"

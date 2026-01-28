@@ -14,7 +14,8 @@ clawdbot_sandbox_template: ""
 tailscale_authkey: ""
 
 # Node.js version (installed inside sandbox)
-nodejs_version: "22"
+# Node 24+ required for --use-env-proxy flag (needed for Docker Sandbox proxy)
+nodejs_version: "24"
 
 # Installation mode: 'release' or 'development'
 # release: Install via pnpm install -g clawdbot@latest
