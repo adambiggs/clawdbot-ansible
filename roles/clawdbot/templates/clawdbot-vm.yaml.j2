@@ -1,0 +1,77 @@
+# Clawdbot Lima VM Configuration
+# This file is managed by Ansible
+vmType: "vz"  # Native Virtualization.framework (fastest on macOS)
+mountType: "virtiofs"
+
+cpus: {{ clawdbot_vm_cpus | default(4) }}
+memory: "{{ clawdbot_vm_memory | default('8GiB') }}"
+
+images:
+  # Ubuntu 24.04 (Noble Numbat)
+  - location: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+mounts:
+  - location: "{{ clawdbot_workspace }}"
+    writable: true
+  # Mount the current Ansible repo so Clawdbot can improve itself
+  - location: "{{ playbook_dir }}"
+    writable: true
+
+# Port forwarding: Clawdbot Dashboard
+portForwards:
+  - guestPort: 18789
+    hostPort: 18789
+    hostIP: "127.0.0.1"
+
+# Provisioning
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      
+      # Install dependencies
+      export DEBIAN_FRONTEND=noninteractive
+      curl -fsSL https://deb.nodesource.com/setup_{{ nodejs_version }}.x | bash -
+      apt-get install -y nodejs build-essential ufw git curl file
+      
+      # Install pnpm
+      npm install -g pnpm
+      pnpm setup
+      
+      # Setup Firewall
+      ufw default deny incoming
+      ufw default allow outgoing
+      ufw allow ssh
+      # Allow local dashboard traffic (from host via ssh tunnel)
+      ufw allow from 127.0.0.1 to any port 18789
+      ufw --force enable
+
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      
+      # Install Linuxbrew (GCC dependency)
+      if [ ! -d "/home/linuxbrew/.linuxbrew" ]; then
+        NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        
+        # Configure shell
+        echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
+        echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.profile
+        
+        # Install GCC
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+        brew install gcc
+      fi
+
+probes:
+  - script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      if ! timeout 30s bash -c "until command -v node >/dev/null 2>&1; do sleep 3; done"; then
+        echo >&2 "node is not installed yet"
+        exit 1
+      fi
+    hint: "Waiting for Node.js installation..."

@@ -1,0 +1,80 @@
+---
+- name: Check if Lima is installed
+  ansible.builtin.command: limactl --version
+  register: lima_version
+  changed_when: false
+  failed_when: lima_version.rc != 0
+
+- name: Create Clawdbot workspace directory
+  ansible.builtin.file:
+    path: "{{ clawdbot_workspace }}"
+    state: directory
+    mode: '0755'
+
+- name: Render Lima configuration
+  ansible.builtin.template:
+    src: clawdbot-vm.yaml.j2
+    dest: "{{ clawdbot_workspace }}/lima.yaml"
+    mode: '0644'
+
+- name: Check if Clawdbot VM exists
+  ansible.builtin.command: limactl list -q
+  register: lima_list
+  changed_when: false
+
+- name: Set facts about VM state
+  ansible.builtin.set_fact:
+    clawdbot_vm_exists: "{{ (clawdbot_vm_name | default('clawdbot')) in lima_list.stdout_lines }}"
+
+- name: Create Clawdbot VM
+  ansible.builtin.command:
+    cmd: "limactl start --name={{ clawdbot_vm_name | default('clawdbot') }} --tty=false {{ clawdbot_workspace }}/lima.yaml"
+  when: not clawdbot_vm_exists
+
+- name: Start Clawdbot VM (if stopped)
+  ansible.builtin.command:
+    cmd: "limactl start {{ clawdbot_vm_name | default('clawdbot') }}"
+  when: clawdbot_vm_exists
+  register: lima_restart
+  changed_when: "'Running' not in lima_restart.stdout"
+  failed_when: lima_restart.rc != 0 and 'already running' not in lima_restart.stderr
+
+- name: Install Clawdbot in VM
+  ansible.builtin.command:
+    cmd: >
+      limactl shell --workdir /home/{{ ansible_user_id }}.linux {{ clawdbot_vm_name | default('clawdbot') }} bash -c
+      "npm list -g clawdbot || sudo npm install -g clawdbot@latest"
+  register: clawdbot_install
+  changed_when: "'added' in clawdbot_install.stdout"
+
+- name: Create run-clawdbot.sh
+  ansible.builtin.copy:
+    dest: "{{ clawdbot_workspace }}/run-clawdbot.sh"
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      # Run Clawdbot in Lima VM
+      # We use --workdir to avoid "cd: No such file" errors
+      limactl shell --workdir /home/{{ ansible_user_id }}.linux {{ clawdbot_vm_name | default('clawdbot') }} clawdbot gateway
+
+- name: Create setup-clawdbot.sh
+  ansible.builtin.copy:
+    dest: "{{ clawdbot_workspace }}/setup-clawdbot.sh"
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      # Run Clawdbot Onboarding in Lima VM
+      limactl shell --workdir /home/{{ ansible_user_id }}.linux {{ clawdbot_vm_name | default('clawdbot') }} clawdbot onboard
+
+- name: Display connection info
+  ansible.builtin.debug:
+    msg: |
+      Clawdbot VM is running!
+      
+      1. Run setup (first time only):
+         {{ clawdbot_workspace }}/setup-clawdbot.sh
+      
+      2. Start the agent:
+         {{ clawdbot_workspace }}/run-clawdbot.sh
+      
+      Dashboard will be available at: http://localhost:18789

@@ -1,11 +1,11 @@
 ---
 # Clawdbot Ansible - Main Tasks
-# Simplified Docker Sandbox-based installation for macOS
+# Simplified installation via Lima VM for macOS
 
 - name: Verify macOS
   ansible.builtin.fail:
-    msg: "This playbook requires macOS with Docker Desktop. For Linux, use the container-based approach."
+    msg: "This playbook requires macOS. For Linux, use the container-based approach."
   when: ansible_facts['os_family'] != 'Darwin'
 
-- name: Include Docker Sandbox setup
-  ansible.builtin.include_tasks: sandbox.yml
+- name: Setup Clawdbot in Lima VM
+  ansible.builtin.include_tasks: lima.yml
