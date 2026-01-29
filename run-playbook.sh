@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Check if Lima is installed, install if missing
+if ! command -v limactl &> /dev/null; then
+    echo "Lima not found. Installing via Homebrew..."
+    brew install lima
+fi
+
 # Run the Ansible playbook
 if [ "$EUID" -eq 0 ]; then
     ansible-playbook playbook.yml -e ansible_become=false "$@"
