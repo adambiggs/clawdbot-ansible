@@ -9,7 +9,7 @@
   environment:
     TERM: xterm-256color
     COLORTERM: truecolor
-    PATH: "/opt/homebrew/bin:{{ ansible_facts['env']['PATH'] | default('/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin') }}"
+    PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
   pre_tasks:
     - name: Detect operating system
