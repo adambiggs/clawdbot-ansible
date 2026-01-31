@@ -1,0 +1,126 @@
+---
+# Proxyman setup for Clawdbot traffic inspection and approval
+# Installs Proxyman on macOS host and configures Lima VM to route traffic through it
+
+- name: Check if Proxyman is installed
+  ansible.builtin.stat:
+    path: /Applications/Proxyman.app
+  register: proxyman_app
+
+- name: Install Proxyman via Homebrew
+  community.general.homebrew_cask:
+    name: proxyman
+    state: present
+  when: not proxyman_app.stat.exists
+
+- name: Create Proxyman certificates directory
+  ansible.builtin.file:
+    path: "{{ clawdbot_workspace }}/certs"
+    state: directory
+    mode: "0755"
+
+- name: Check if Proxyman CA certificate exists
+  ansible.builtin.stat:
+    path: "{{ proxyman_ca_cert_path }}"
+  register: proxyman_ca_cert
+
+- name: Try to export Proxyman CA certificate from macOS Keychain
+  ansible.builtin.command:
+    cmd: >
+      /usr/bin/security find-certificate -a -p
+      -c "{{ item.0 }}" "{{ item.1 }}"
+  register: proxyman_keychain_export
+  changed_when: false
+  failed_when: false
+  when: not proxyman_ca_cert.stat.exists
+  loop: "{{ (proxyman_ca_cert_common_names | default([])) | product(proxyman_ca_keychains | default([])) | list }}"
+
+- name: Write exported Proxyman CA certificate to file
+  ansible.builtin.copy:
+    dest: "{{ proxyman_ca_cert_path }}"
+    content: "{{ proxyman_keychain_export.results | map(attribute='stdout') | join('\n') }}"
+    mode: "0644"
+  when:
+    - not proxyman_ca_cert.stat.exists
+    - (proxyman_keychain_export.results | default([]) | map(attribute='stdout') | join('') | length) > 0
+
+- name: Re-check if Proxyman CA certificate exists
+  ansible.builtin.stat:
+    path: "{{ proxyman_ca_cert_path }}"
+  register: proxyman_ca_cert
+
+- name: Display Proxyman CA certificate instructions
+  ansible.builtin.debug:
+    msg: |
+      ============================================================
+      MANUAL STEP REQUIRED: Export Proxyman CA Certificate
+      ============================================================
+
+      If you already installed Proxyman's macOS certificate, the playbook tried
+      to export it automatically from the System Keychain but couldn't find it.
+
+      1. Open Proxyman
+      2. Go to Certificate menu → Export → Root Certificate...
+      3. Save as: {{ proxyman_ca_cert_path }}
+
+      Then re-run this playbook.
+      ============================================================
+  when: not proxyman_ca_cert.stat.exists
+
+- name: Fail if Proxyman CA certificate not found
+  ansible.builtin.fail:
+    msg: "Proxyman CA certificate not found at {{ proxyman_ca_cert_path }}. Please export it from Proxyman first."
+  when: not proxyman_ca_cert.stat.exists and proxyman_require_cert
+
+- name: Copy CA certificate to Lima VM
+  ansible.builtin.command:
+    cmd: >
+      limactl copy {{ proxyman_ca_cert_path }}
+      {{ clawdbot_vm_name }}:/tmp/proxyman-ca.pem
+  when: proxyman_ca_cert.stat.exists
+
+- name: Install CA certificate in Lima VM
+  ansible.builtin.command:
+    cmd: >
+      limactl shell {{ clawdbot_vm_name }} bash -c
+      "sudo cp /tmp/proxyman-ca.pem /usr/local/share/ca-certificates/proxyman-ca.crt &&
+       sudo update-ca-certificates"
+  when: proxyman_ca_cert.stat.exists
+  register: ca_install
+  changed_when: "'1 added' in ca_install.stdout"
+
+- name: Configure Node.js to use system CA certificates
+  ansible.builtin.command:
+    cmd: >
+      limactl shell {{ clawdbot_vm_name }} bash -c
+      "grep -q 'NODE_EXTRA_CA_CERTS' ~/.bashrc ||
+       echo 'export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt' >> ~/.bashrc"
+  when: proxyman_ca_cert.stat.exists
+
+- name: Display Proxyman setup complete
+  ansible.builtin.debug:
+    msg: |
+      ============================================================
+      Proxyman Integration Complete!
+      ============================================================
+
+      The Lima VM is configured to route traffic through Proxyman.
+
+      Proxyman Settings:
+        1. Open Proxyman
+        2. Enable "macOS Proxy" (Certificate menu → Install on this Mac)
+        3. Enable SSL Proxying for all domains (Tools → SSL Proxying List → *)
+
+      Traffic Approval:
+        - All clawdbot HTTP/HTTPS requests will appear in Proxyman
+        - Use Breakpoints (Tools → Breakpoint) to pause and approve requests
+        - Right-click any request → "Add Breakpoint Rule" for new domains
+
+      Recommended Breakpoint Setup:
+        1. Tools → Breakpoint → Add Rule
+        2. Set "Match All Requests" initially
+        3. Enable "Pause Request" to approve each new domain
+        4. After approving, remove from breakpoints or set to "Pass Through"
+
+      ============================================================
+  when: proxyman_ca_cert.stat.exists

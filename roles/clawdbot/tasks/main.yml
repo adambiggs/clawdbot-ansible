@@ -1,11 +1,15 @@
 ---
 # Clawdbot Ansible - Main Tasks
-# Simplified installation via Lima VM for macOS
+# Simplified installation via Lima VM for macOS with Proxyman traffic inspection
 
 - name: Verify macOS
   ansible.builtin.fail:
     msg: "This playbook requires macOS. For Linux, use the container-based approach."
   when: ansible_facts['os_family'] != 'Darwin'
+
+- name: Setup Proxyman for traffic inspection
+  ansible.builtin.include_tasks: proxyman.yml
+  when: clawdbot_proxy_enabled | default(true)
 
 - name: Setup Clawdbot in Lima VM
   ansible.builtin.include_tasks: lima.yml

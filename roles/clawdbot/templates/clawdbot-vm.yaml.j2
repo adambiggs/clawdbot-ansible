@@ -22,7 +22,25 @@ mounts:
 portForwards:
   - guestPort: 18789
     hostPort: 18789
+{% if clawdbot_tailscale_access | default(false) %}
+    hostIP: "0.0.0.0"  # Allow Tailscale access
+{% else %}
     hostIP: "127.0.0.1"
+{% endif %}
+
+{% if clawdbot_proxy_enabled | default(true) %}
+# Route all VM traffic through Proxyman on the host
+# Proxyman uses a single port (9090) for both HTTP and HTTPS
+hostResolver:
+  enabled: true
+  hosts:
+    host.docker.internal: host.lima.internal
+
+env:
+  HTTP_PROXY: "http://{{ proxyman_host | default('192.168.5.2') }}:{{ proxyman_port | default(9090) }}"
+  HTTPS_PROXY: "http://{{ proxyman_host | default('192.168.5.2') }}:{{ proxyman_port | default(9090) }}"
+  NO_PROXY: "localhost,127.0.0.1,host.lima.internal"
+{% endif %}
 
 # Provisioning
 provision:

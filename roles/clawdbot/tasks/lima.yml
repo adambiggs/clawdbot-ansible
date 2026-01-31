@@ -9,13 +9,13 @@
   ansible.builtin.file:
     path: "{{ clawdbot_workspace }}"
     state: directory
-    mode: '0755'
+    mode: "0755"
 
 - name: Render Lima configuration
   ansible.builtin.template:
     src: clawdbot-vm.yaml.j2
     dest: "{{ clawdbot_workspace }}/lima.yaml"
-    mode: '0644'
+    mode: "0644"
 
 - name: Check if Clawdbot VM exists
   ansible.builtin.command: limactl list -q
@@ -42,7 +42,7 @@
 - name: Install Clawdbot in VM
   ansible.builtin.command:
     cmd: >
-      limactl shell --workdir /home/{{ ansible_user_id }}.linux {{ clawdbot_vm_name | default('clawdbot') }} bash -c
+      limactl shell --workdir /home/{{ ansible_facts['user_id'] }}.linux {{ clawdbot_vm_name | default('clawdbot') }} bash -c
       "npm list -g clawdbot || sudo npm install -g clawdbot@latest"
   register: clawdbot_install
   changed_when: "'added' in clawdbot_install.stdout"
@@ -50,31 +50,59 @@
 - name: Create run-clawdbot.sh
   ansible.builtin.copy:
     dest: "{{ clawdbot_workspace }}/run-clawdbot.sh"
-    mode: '0755'
+    mode: "0755"
     content: |
       #!/bin/bash
       # Run Clawdbot in Lima VM
       # We use --workdir to avoid "cd: No such file" errors
-      limactl shell --workdir /home/{{ ansible_user_id }}.linux {{ clawdbot_vm_name | default('clawdbot') }} clawdbot gateway
+      limactl shell --workdir /home/{{ ansible_facts['user_id'] }}.linux {{ clawdbot_vm_name | default('clawdbot') }} clawdbot gateway
 
 - name: Create setup-clawdbot.sh
   ansible.builtin.copy:
     dest: "{{ clawdbot_workspace }}/setup-clawdbot.sh"
-    mode: '0755'
+    mode: "0755"
     content: |
       #!/bin/bash
       # Run Clawdbot Onboarding in Lima VM
-      limactl shell --workdir /home/{{ ansible_user_id }}.linux {{ clawdbot_vm_name | default('clawdbot') }} clawdbot onboard
+      limactl shell --workdir /home/{{ ansible_facts['user_id'] }}.linux {{ clawdbot_vm_name | default('clawdbot') }} clawdbot onboard
+
+- name: Configure proxy environment in VM
+  ansible.builtin.shell:
+    cmd: |
+      limactl shell {{ clawdbot_vm_name | default('clawdbot') }} bash -c '
+        grep -q "HTTP_PROXY" ~/.bashrc || cat >> ~/.bashrc << EOF
+
+      # Proxyman proxy configuration
+      export HTTP_PROXY="http://{{ proxyman_host }}:{{ proxyman_port }}"
+      export HTTPS_PROXY="http://{{ proxyman_host }}:{{ proxyman_port }}"
+      export http_proxy="http://{{ proxyman_host }}:{{ proxyman_port }}"
+      export https_proxy="http://{{ proxyman_host }}:{{ proxyman_port }}"
+      export NO_PROXY="localhost,127.0.0.1,host.lima.internal"
+      export no_proxy="localhost,127.0.0.1,host.lima.internal"
+      EOF
+      '
+  when: clawdbot_proxy_enabled | default(true)
 
 - name: Display connection info
   ansible.builtin.debug:
     msg: |
       Clawdbot VM is running!
-      
+
       1. Run setup (first time only):
          {{ clawdbot_workspace }}/setup-clawdbot.sh
-      
+
       2. Start the agent:
          {{ clawdbot_workspace }}/run-clawdbot.sh
-      
+
       Dashboard will be available at: http://localhost:18789
+      {% if clawdbot_tailscale_access | default(false) %}
+
+      Tailscale Access:
+        Dashboard is accessible via your Tailscale IP on port 18789
+      {% endif %}
+      {% if clawdbot_proxy_enabled | default(true) %}
+
+      Traffic Inspection:
+        All outbound traffic routes through Proxyman.
+        Open Proxyman to monitor and approve requests.
+      {% endif %}

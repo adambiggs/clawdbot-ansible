@@ -1,20 +1,24 @@
 ---
 # Clawdbot Ansible - Default Variables
-# macOS Docker Sandbox installation
+# macOS Lima VM installation with Proxyman traffic inspection
 
-# Sandbox settings
-clawdbot_sandbox_name: "clawdbot"
+# Lima VM settings
+clawdbot_vm_name: "clawdbot"
 clawdbot_workspace: "{{ ansible_facts['env']['HOME'] }}/.clawdbot"
+clawdbot_vm_cpus: 4
+clawdbot_vm_memory: "8GiB"
 
-# Sandbox template (container image for the sandbox environment)
-# Use custom template for pre-installed tools, or leave empty for default
+# Sandbox settings (legacy - for Docker Sandbox mode)
+clawdbot_sandbox_name: "clawdbot"
 clawdbot_sandbox_template: ""
 
-# Tailscale settings (optional - for remote access to sandbox)
+# Tailscale settings
+# Set to true to allow remote access via Tailscale
+clawdbot_tailscale_access: false
 tailscale_authkey: ""
 
-# Node.js version (installed inside sandbox)
-# Node 24+ required for --use-env-proxy flag (needed for Docker Sandbox proxy)
+# Node.js version (installed inside VM/sandbox)
+# Node 24+ required for --use-env-proxy flag
 nodejs_version: "24"
 
 # Installation mode: 'release' or 'development'
@@ -27,6 +31,34 @@ clawdbot_repo_url: "https://github.com/steipete/clawdbot.git"
 clawdbot_repo_branch: "main"
 
 # API keys (set via environment variables or pass with -e)
-# These are passed into the sandbox environment
 anthropic_api_key: "{{ lookup('env', 'ANTHROPIC_API_KEY') }}"
 openai_api_key: "{{ lookup('env', 'OPENAI_API_KEY') }}"
+
+# Proxyman traffic inspection settings
+# When enabled, all VM traffic routes through Proxyman for approval/inspection
+clawdbot_proxy_enabled: true
+
+# Path to Proxyman CA certificate (exported from Proxyman app)
+proxyman_ca_cert_path: "{{ clawdbot_workspace }}/certs/proxyman-ca.pem"
+
+# Common names to search for when exporting the Proxyman CA from macOS Keychain.
+# If Proxyman's cert isn't installed in Keychain yet, you'll still need to open
+# Proxyman once and install its macOS certificate.
+proxyman_ca_cert_common_names:
+  - "Proxyman CA"
+  - "Proxyman Root CA"
+  - "Proxyman"
+
+# Keychains to search when exporting the Proxyman CA.
+# Proxyman may install its certificate into either System or Login keychain.
+proxyman_ca_keychains:
+  - "/Library/Keychains/System.keychain"
+  - "{{ ansible_facts['env']['HOME'] }}/Library/Keychains/login.keychain-db"
+
+# Proxyman proxy settings
+# Proxyman uses a single port (9090) for both HTTP and HTTPS
+proxyman_host: "192.168.5.2" # Lima host gateway IP
+proxyman_port: 9090
+
+# Fail if Proxyman CA cert not found (set to false to skip cert setup)
+proxyman_require_cert: true
